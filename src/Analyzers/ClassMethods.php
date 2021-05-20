@@ -13,12 +13,14 @@ class ClassMethods
             'type' => '',
         ];
         $methods = [];
+
         while (isset($tokens[$i])) {
             $token = $tokens[$i];
 
             if ($token[0] == T_CLASS && $tokens[$i - 1][0] !== T_DOUBLE_COLON) {
                 $class['name'] = $tokens[$i + 2];
                 $class['type'] = T_CLASS;
+                $class['is_abstract'] = ($tokens[$i - 2][0] === T_ABSTRACT);
             } elseif ($token[0] == T_INTERFACE) {
                 $class['name'] = $tokens[$i + 2];
                 $class['type'] = T_INTERFACE;
@@ -37,26 +39,18 @@ class ClassMethods
                 continue;
             }
 
-            if (\in_array($tokens[$i - 2][0], [T_PUBLIC, T_PROTECTED, T_PRIVATE])) {
-                $visibility = $tokens[$i - 2];
-            } else {
-                $visibility = [T_PUBLIC, 'public'];
-            }
-
+            [$visibility, $isStatic, $isAbstract] = self::findVisibility($tokens, $i - 2);
             [, $signature, $endSignature] = Ifs::readCondition($tokens, $i + 2);
             [$char, $charIndex] = FunctionCall::forwardTo($tokens, $endSignature, [':', ';', '{']);
-            if ($char == ':') {
-                [$returnType, $returnTypeIndex] = FunctionCall::getNextToken($tokens, $charIndex);
-                [$char, $charIndex] = FunctionCall::getNextToken($tokens, $returnTypeIndex);
-            } else {
-                $returnType = null;
-            }
+
+            [$returnType, $hasNullableReturnType, $char, $charIndex] = self::processReturnType($char, $tokens, $charIndex);
 
             if ($char == '{') {
                 [$body, $i] = FunctionCall::readBody($tokens, $charIndex);
             } elseif ($char == ';') {
                 $body = [];
             }
+
             $i++;
             $methods[] = [
                 'name' => $name,
@@ -65,12 +59,50 @@ class ClassMethods
                 'body' => Refactor::toString($body),
                 'startBodyIndex' => [$charIndex, $i],
                 'returnType' => $returnType,
-
+                'nullable_return_type' => $hasNullableReturnType,
+                'is_static' => $isStatic,
+                'is_abstract' => $isAbstract,
             ];
         }
 
         $class['methods'] = $methods;
 
         return $class;
+    }
+
+    private static function findVisibility($tokens, $i)
+    {
+        $isStatic = $tokens[$i][0] === T_STATIC && $i -= 2;
+        $isAbstract = $tokens[$i][0] === T_ABSTRACT && $i -= 2;
+
+        $hasModifier = \in_array($tokens[$i][0], [T_PUBLIC, T_PROTECTED, T_PRIVATE]);
+        $visibility = $hasModifier ? $tokens[$i] : [T_PUBLIC, 'public'];
+
+        // We have to cover both syntax:
+        //     public abstract function x() {
+        //     abstract public function x() {
+        ! $isAbstract && $isAbstract = $tokens[$i - 2][0] === T_ABSTRACT;
+
+        return [$visibility, $isStatic, $isAbstract];
+    }
+
+    private static function processReturnType($char, $tokens, $charIndex)
+    {
+        if ($char != ':') {
+            return [null, null, $char, $charIndex];
+        }
+
+        [$returnType, $returnTypeIndex] = FunctionCall::getNextToken($tokens, $charIndex);
+
+        // In case the return type is like this: function c() : ?string {...
+        $hasNullableReturnType = ($returnType == '?');
+
+        if ($hasNullableReturnType) {
+            [$returnType, $returnTypeIndex] = FunctionCall::getNextToken($tokens, $returnTypeIndex);
+        }
+
+        [$char, $charIndex] = FunctionCall::getNextToken($tokens, $returnTypeIndex);
+
+        return [$returnType, $hasNullableReturnType, $char, $charIndex];
     }
 }

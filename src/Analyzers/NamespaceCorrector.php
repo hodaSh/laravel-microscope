@@ -4,6 +4,19 @@ namespace Imanghafoori\LaravelMicroscope\Analyzers;
 
 class NamespaceCorrector
 {
+    public static function getNamespaceFromFullClass($class)
+    {
+        $arr = explode('\\', $class);
+        array_pop($arr);
+
+        return trim(implode('\\', $arr), '\\');
+    }
+
+    public static function haveSameNamespace($class1, $class2)
+    {
+        return self::getNamespaceFromFullClass($class1) == self::getNamespaceFromFullClass($class2);
+    }
+
     public static function fix($classFilePath, $incorrectNamespace, $correctNamespace)
     {
         // decides to add namespace (in case there is no namespace) or edit the existing one.
@@ -55,5 +68,23 @@ class NamespaceCorrector
         $paths = array_values($autoload);
 
         return \str_replace(['\\', '/'], DIRECTORY_SEPARATOR, \str_replace($namespaces, $paths, $namespace));
+    }
+
+    public static function getNamespaceFromRelativePath($relPath)
+    {
+        // Remove .php from class path
+        $relPath = str_replace([base_path(), '.php'], '', $relPath);
+
+        $autoload = ComposerJson::readAutoload();
+        uksort($autoload, function ($a, $b) {
+            return strlen($b) <=> strlen($a);
+        });
+
+        $namespaces = array_keys($autoload);
+        $paths = array_values($autoload);
+
+        $relPath = \str_replace('\\', '/', $relPath);
+
+        return trim(\str_replace('/', '\\', \str_replace($paths, $namespaces, $relPath)), '\\');
     }
 }

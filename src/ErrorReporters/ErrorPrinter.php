@@ -2,6 +2,7 @@
 
 namespace Imanghafoori\LaravelMicroscope\ErrorReporters;
 
+use Imanghafoori\LaravelMicroscope\Analyzers\FilePath;
 use Imanghafoori\LaravelMicroscope\LaravelPaths\LaravelPaths;
 
 class ErrorPrinter
@@ -26,6 +27,14 @@ class ErrorPrinter
             ->header(\trim($lineContent))
             ->errorData($this->yellow($fileName.'.blade.php').' does not exist')
             ->link($absPath, $lineNumber));
+    }
+
+    public function printFixation($absPath, $wrongClass, $lineNumber, $correct)
+    {
+        $header = $wrongClass.'  <===  Did not exist';
+        $msg = 'Auto-corrected to:   '.substr($correct[0], 0, 55);
+
+        $this->simplePendError($absPath, $lineNumber, $msg, 'ns_replacement', $header);
     }
 
     public function route($path, $errorIt, $errorTxt, $absPath = null, $lineNumber = 0)
@@ -225,7 +234,7 @@ class ErrorPrinter
     public function printLink($path, $lineNumber = 4)
     {
         if ($path) {
-            $filePath = \trim(\str_replace(base_path(), '', $path), '\\/');
+            $filePath = FilePath::normalize(\trim(\str_replace(base_path(), '', $path), '\\/'));
             $this->print('at <fg=green>'.$filePath.'</>'.':<fg=green>'.$lineNumber.'</>', '', PendingError::$maxLength + 30);
         }
     }
@@ -261,6 +270,20 @@ class ErrorPrinter
         }
     }
 
+    private static function possibleFixMsg($pieces)
+    {
+        $fixes = \implode("\n - ", $pieces);
+        $fixes && $fixes = "\n Possible fixes:\n - ".$fixes;
+
+        return $fixes;
+    }
+
+    public function wrongImportPossibleFixes($absPath, $class, $line, $fixes)
+    {
+        $fixes = self::possibleFixMsg($fixes);
+        $this->wrongUsedClassError($absPath, $class.'   <===  \(-_-)/  '.$fixes, $line);
+    }
+
     public function getCount($key)
     {
         return \count($this->errorsList[$key] ?? []);
@@ -268,6 +291,18 @@ class ErrorPrinter
 
     public function printTime()
     {
-        $this->logErrors && $this->printer->writeln('Total elapsed time: '.round(microtime(true) - microscope_start, 2).' sec', 2);
+        $this->logErrors && $this->printer->writeln('time: '.round(microtime(true) - microscope_start, 3).' (sec)', 2);
+    }
+
+    public static function thanks($command)
+    {
+        $command->line(PHP_EOL.'<fg=blue>|-------------------------------------------------|</>');
+        $command->line('<fg=blue>|-----------     Star Me On Github     -----------|</>');
+        $command->line('<fg=blue>|-------------------------------------------------|</>');
+        $command->line('<fg=blue>|  Hey man, if you have found microscope useful   |</>');
+        $command->line('<fg=blue>|  Please consider giving it an star on github.   |</>');
+        $command->line('<fg=blue>|  \(^_^)/    Regards, Iman Ghafoori    \(^_^)/   |</>');
+        $command->line('<fg=blue>|-------------------------------------------------|</>');
+        $command->line('https://github.com/imanghafoori1/microscope');
     }
 }

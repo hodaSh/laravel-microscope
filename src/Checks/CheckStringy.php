@@ -6,7 +6,6 @@ use Illuminate\Support\Str;
 use Imanghafoori\LaravelMicroscope\Analyzers\ComposerJson;
 use Imanghafoori\LaravelMicroscope\Analyzers\NamespaceCorrector;
 use Imanghafoori\LaravelMicroscope\Analyzers\ReplaceLine;
-use Imanghafoori\LaravelMicroscope\CheckClasses;
 use Imanghafoori\LaravelMicroscope\ErrorReporters\ErrorPrinter;
 
 class CheckStringy
@@ -25,11 +24,10 @@ class CheckStringy
             if (! $this->isPossiblyClassyString($token, $namespaces)) {
                 continue;
             }
+
             $classPath = \trim($token[1], '\'\"');
-            if (CheckClasses::isAbsent($classPath)) {
-                $relPath = NamespaceCorrector::getRelativePathFromNamespace($classPath);
-                // Is a correct namespace path, pointing to a directory
-                if (is_dir(base_path($relPath))) {
+            if (! \class_exists($classPath)) {
+                if (self::refersToDir($classPath)) {
                     continue;
                 }
                 $errorPrinter->wrongUsedClassError($absFilePath, $token[1], $token[2]);
@@ -38,13 +36,22 @@ class CheckStringy
 
             $errorPrinter->printLink($absFilePath, $token[2]);
             $command = app('current.command');
-            $command->getOutput()->text($token[2].' |'.file($absFilePath)[$token[2] - 1]);
-            $answer = $command->getOutput()->confirm('Do you want to replace: '.$token[1].' with ::class version of it? ', true);
-            if ($answer) {
-                dump('Replacing: '.$token[1].'  with: '.$this->getClassyPath($classPath));
-                ReplaceLine::replaceFirst($absFilePath, $token[1], $this->getClassyPath($classPath));
-                $command->info('====================================');
+
+            if (! self::ask($command, $token, $absFilePath)) {
+                continue;
             }
+
+            $classPath = $this->getClassyPath($classPath);
+            $command->info('Replacing: '.$token[1].'  with: '.$classPath);
+
+            $contextClass = NamespaceCorrector::getNamespaceFromRelativePath($absFilePath);
+
+            if (NamespaceCorrector::haveSameNamespace($contextClass, $classPath)) {
+                $classPath = trim(class_basename($classPath), '\\');
+            }
+
+            ReplaceLine::replaceFirst($absFilePath, $token[1], $classPath);
+            $command->info('====================================');
         }
     }
 
@@ -53,13 +60,30 @@ class CheckStringy
         ($string[0] !== '\\') && ($string = '\\'.$string);
         $string .= '::class';
 
-        return $string;
+        return str_replace('\\\\', '\\', $string);
     }
 
     private function isPossiblyClassyString($token, $namespaces)
     {
         $chars = ['@', ' ', ',', ':', '/', '.', '-'];
 
-        return $token[0] == T_CONSTANT_ENCAPSED_STRING && Str::contains($token[1], $namespaces) && ! Str::contains($token[1], $chars);
+        return $token[0] == T_CONSTANT_ENCAPSED_STRING &&
+            Str::contains($token[1], $namespaces) &&
+            ! in_array($token[1], $namespaces) &&
+            ! Str::contains($token[1], $chars) &&
+            ! Str::endsWith($token[1], '\\');
+    }
+
+    private static function ask($command, $token, $absFilePath)
+    {
+        $command->getOutput()->text($token[2].' |'.file($absFilePath)[$token[2] - 1]);
+        $text = 'Do you want to replace: '.$token[1].' with ::class version of it?';
+
+        return $command->getOutput()->confirm($text, true);
+    }
+
+    private static function refersToDir(string $classPath)
+    {
+        return is_dir(base_path(NamespaceCorrector::getRelativePathFromNamespace($classPath)));
     }
 }

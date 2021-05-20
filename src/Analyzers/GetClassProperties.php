@@ -7,7 +7,8 @@ class GetClassProperties
     public static function fromFilePath($filePath)
     {
         $fp = fopen($filePath, 'r');
-        $buffer = fread($fp, 2000);
+        $buffer = fread($fp, config('microscope.class_search_buffer', 2500));
+        // in order to ensure docblocks are closed if there is any opeinging we add "/**/"
         $tokens = token_get_all($buffer.'/**/');
 
         if (strpos($buffer, '{') === false) {
@@ -38,7 +39,7 @@ class GetClassProperties
             // when we reach the first "class", or "interface" or "trait" keyword
             if (! $class && \in_array($tokens[$i][0], [T_CLASS, T_INTERFACE, T_TRAIT])) {
                 $class = $tokens[$i + 2][1];
-                $type = $tokens[$i + 2][0];
+                $type = $tokens[$i][0];
                 $i = $i + 2;
                 continue;
             }

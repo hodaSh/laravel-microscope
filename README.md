@@ -1,15 +1,12 @@
 <h1 align="center">
-    Find Bugs Before They Bite
+   Do you dare to move a class?
 </h1>
 <h2 align="center">
-    Automatic Code Refactor
+     Find Bugs Before They Bite
 </h2>
-<h3 align="center">
-    and, New Way of Code Generation
-</h3>
 
 <h3 align="center">
-So, Give your eyes a rest, this will check it for you.
+Give your eyes a rest, we will detect and fix them for you.
 </h3>
 <p align="center">
     <img width="300px" src="https://user-images.githubusercontent.com/6961695/78522127-920e9e80-77e1-11ea-869a-05a29466e6b0.png" alt="widgetize_header"></img>
@@ -22,7 +19,6 @@ Built with :heart: for lazy laravel developers ;)
 [![Required Laravel Version][ico-laravel]][link-packagist]
 [![Required PHP Version][ico-php]][link-packagist]
 [![Latest Version on Packagist][ico-version]][link-packagist]
-[![Build Status][ico-travis]][link-travis]
 [![Quality Score][ico-code-quality]][link-code-quality]
 [![Total Downloads][ico-downloads]][link-downloads]
 [![Today Downloads][ico-today-downloads]][link-downloads]
@@ -42,13 +38,14 @@ Built with :heart: for lazy laravel developers ;)
 - It does **not show you stupid false errors**, all the errors are really errors.
 - Even If you have written a lot of tests for your app, **you may still need this**.
 - **It can refactor your code**, by applying `early returns` automatically.
+- It is written from scratch to yield the **maximum performance** possible.
 
 ### :film_strip: Video tutorial [here](https://youtu.be/aEkiE30wNKk)
 
 ### :star: Your Stars Make Us Do More
 If you found this package useful, and you want to encourage the maintainer to work on it, just press the star button to declare your willingness.
 
-Stargazers: https://github.com/imanghafoori1/microscope/stargazers
+<a href="https://github.com/imanghafoori1/microscope/stargazers">Stargazers</a> 
 
 
 ## <g-emoji class="g-emoji" alias="arrow_down" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/2b07.png">⬇️</g-emoji> Installation 
@@ -59,12 +56,10 @@ You can install the package via composer:
 composer require imanghafoori/laravel-microscope --dev
 ```
 
-Although this project has already a lot of features, it is still under active development, so you have to update it almost every day in order to get the latest improvements and bug fixes.
-
-```bash
-composer update imanghafoori/laravel-microscope
+You may also publish config file:
 ```
-
+php artisan vendor:publish
+```
 
 ## <g-emoji class="g-emoji" alias="gem" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f48e.png">💎</g-emoji> Usage
 
@@ -87,11 +82,11 @@ You can run:
 
 <p>
 <h4>
-<g-emoji class="g-emoji" alias="small_blue_diamond" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f539.png">🔹</g-emoji> php artisan check:psr4 
+<g-emoji class="g-emoji" alias="small_blue_diamond" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f539.png">🔹</g-emoji> php artisan check:psr4 {-s|--nofix}
 </h4></p>
  
 <p><h4>
-<g-emoji class="g-emoji" alias="small_blue_diamond" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f539.png">🔹</g-emoji> php artisan check:imports  </h4>
+<g-emoji class="g-emoji" alias="small_blue_diamond" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f539.png">🔹</g-emoji> php artisan check:imports {-s|--nofix}</h4>
 </p>  
 
 <p><h4>
@@ -134,7 +129,9 @@ You can run:
 <g-emoji class="g-emoji" alias="small_blue_diamond" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f539.png">🔹</g-emoji> php artisan check:generate
 </h4></p>
 
-
+<p><h4>
+<g-emoji class="g-emoji" alias="small_blue_diamond" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f539.png">🔹</g-emoji> php artisan check:endif
+</h4></p>
 
 <p><h4>
 <g-emoji class="g-emoji" alias="small_blue_diamond" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f539.png">🔹</g-emoji> php artisan check:all 
@@ -160,7 +157,7 @@ For example:
 ```php
 <?php
 
-forearch ($products as $product) {
+foreach ($products as $product) {
     if ($someCond) {
         // A lot of code 1
         // A lot of code 1
@@ -185,7 +182,7 @@ Will be discovered and converted into:
 ```php
 <?php
 
-forearch ($products as $product) {
+foreach ($products as $product) {
     if (! $someCond) {
         continue;
     }
@@ -216,8 +213,14 @@ The same thing will apply for functions and methods, but with `return`
 
 if ($cond1) {
     if ($cond2) {
-        ....       merge into  ===>    if ($cond1 && $cond2) {   ...   }
+        ....       
     }
+}
+
+// merge into:
+
+if ($cond1 && $cond2) { 
+    ...  
 }
 
 ```
@@ -237,7 +240,6 @@ endif;
 if ($var1 > 1)
     if ($var2 > 2)
         echo 'Hey Man';
-
 
 ```
 
@@ -321,7 +323,7 @@ php artisan check:extract_blades
 you can use `{!! extractBlade('myPartials.someFile') !!}` in your blade files to indicate `start/end line` and the `path/name` of the partial you intend to be made.
 
 ```html
-  <html>
+ <html>
       
       {!! extractBlade('myPartials.head') !!}
           <head>...</head>
@@ -332,7 +334,7 @@ you can use `{!! extractBlade('myPartials.someFile') !!}` in your blade files to
           <body>...</body>
       {!! extractBlade() !!}
       
-    </html>
+ </html>
 ```
 
 After you execute `php artisan check:extract_blades` it will become:
@@ -503,18 +505,6 @@ If you discover any security-related issues, please email `imanghafoori1@gmail.c
 
 - https://github.com/imanghafoori1/eloquent-relativity
 
-----------------
-
-### 🍌 Donation:
-
-You can contact me if you want to make a donation, so I can put your logo or name on the readme file as a donator. 
-
-IM: https://t.me/imanghafoori 
-
-Email: imanghafoori1@gmail.com
-
-I would be happy to answer you.
-
 --------------
 ### Todo:
 - Detect Bad code
@@ -522,7 +512,6 @@ I would be happy to answer you.
 - Detect return keyword in eloquent relations
 - Detect wrong action() calls
 - Enhance blocky code detection
-- Fully decouple the error logger
 - Detect `return abort();`
 - Detect un-registered service providers
 - Detect unused middlewares

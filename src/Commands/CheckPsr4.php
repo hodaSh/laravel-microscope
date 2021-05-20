@@ -5,41 +5,51 @@ namespace Imanghafoori\LaravelMicroscope\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Composer;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Str;
 use Imanghafoori\LaravelMicroscope\Analyzers\ComposerJson;
 use Imanghafoori\LaravelMicroscope\Analyzers\FilePath;
 use Imanghafoori\LaravelMicroscope\CheckNamespaces;
-use Imanghafoori\LaravelMicroscope\Contracts\FileCheckContract;
 use Imanghafoori\LaravelMicroscope\ErrorReporters\ErrorPrinter;
 use Imanghafoori\LaravelMicroscope\FileReaders\Paths;
 use Imanghafoori\LaravelMicroscope\LaravelPaths\LaravelPaths;
 use Imanghafoori\LaravelMicroscope\SpyClasses\RoutePaths;
-use Imanghafoori\LaravelMicroscope\Traits\LogsErrors;
-use Imanghafoori\LaravelMicroscope\Traits\ScansFiles;
 use Symfony\Component\Finder\Finder;
 
-class CheckPsr4 extends Command implements FileCheckContract
+class CheckPsr4 extends Command
 {
-    use LogsErrors;
-    use ScansFiles;
-
-    protected $signature = 'check:psr4 {--d|detailed : Show files being checked} {--f|force}';
+    protected $signature = 'check:psr4 {--d|detailed : Show files being checked} {--f|force} {--s|nofix}';
 
     protected $description = 'Checks the validity of namespaces';
 
     public function handle(ErrorPrinter $errorPrinter)
     {
-        $this->info('Checking PSR-4 Namespaces...');
+        $this->line('');
+        $this->info('Start checking PSR-4 namespaces...');
+        $time = microtime(true);
 
         $errorPrinter->printer = $this->output;
 
         $autoload = ComposerJson::readAutoload();
-        $this->fixNamespaces($autoload);
+        $this->checkNamespaces($autoload);
         $olds = \array_keys(CheckNamespaces::$changedNamespaces);
         $news = \array_values(CheckNamespaces::$changedNamespaces);
-        $this->fixReferences($autoload, $olds, $news);
 
-        $this->getOutput()->writeln(' - '.CheckNamespaces::$checkedNamespaces.' namespaces were Checked!');
-        $this->finishCommand($errorPrinter);
+        $this->option('nofix') && config(['microscope.no_fix' => true]);
+
+        if (! config('microscope.no_fix')) {
+            $this->fixReferences($autoload, $olds, $news);
+        }
+        if (Str::startsWith(request()->server('argv')[1] ?? '', 'check:psr4')) {
+            $this->getOutput()->writeln('');
+            $this->getOutput()->writeln('<fg=green>Finished!</fg=green>');
+            $this->getOutput()->writeln('==============================');
+            $this->getOutput()->writeln('<options=bold;fg=yellow>'.CheckNamespaces::$checkedNamespaces.' classes were checked under:</>');
+            $this->getOutput()->writeln(' - '.implode("\n - ", array_keys($autoload)).'');
+            $this->printErrorsCount($errorPrinter, $time);
+        } else {
+            $this->getOutput()->writeln(' - '.CheckNamespaces::$checkedNamespaces.' namespaces were checked.');
+        }
+
         $this->composerDumpIfNeeded($errorPrinter);
     }
 
@@ -77,7 +87,7 @@ class CheckPsr4 extends Command implements FileCheckContract
 
         foreach ($hints as $paths) {
             foreach ($paths as $path) {
-                $files = Finder::create()->name('*.blade.php')->files()->in($path);
+                $files = is_dir($path) ? Finder::create()->name('*.blade.php')->files()->in($path) : [];
                 foreach ($files as $blade) {
                     /**
                      * @var \Symfony\Component\Finder\SplFileInfo $blade
@@ -157,7 +167,7 @@ class CheckPsr4 extends Command implements FileCheckContract
         }
     }
 
-    private function fixNamespaces(array $autoload)
+    private function checkNamespaces(array $autoload)
     {
         foreach ($autoload as $psr4Namespace => $psr4Path) {
             $files = FilePath::getAllPhpFiles($psr4Path);
@@ -168,5 +178,17 @@ class CheckPsr4 extends Command implements FileCheckContract
     private function report(string $_path, $line)
     {
         app(ErrorPrinter::class)->simplePendError($_path, $line, '', 'ns_replacement', 'Namespace replacement:');
+    }
+
+    private function printErrorsCount($errorPrinter, $time)
+    {
+        if ($errorCount = $errorPrinter->errorsList['total']) {
+            $errorCount && $this->warn(PHP_EOL.$errorCount.' error(s) found in namespaces');
+        } else {
+            $time = microtime(true) - $time;
+            $this->line(PHP_EOL.'<fg=green>All namespaces are correct!</><fg=blue> You rock  \(^_^)/ </>');
+            $this->line('<fg=red;options=bold>'.round($time, 5).'(s)</>');
+            $this->line('');
+        }
     }
 }

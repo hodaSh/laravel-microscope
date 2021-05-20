@@ -28,6 +28,7 @@ class CheckNamespaces
      */
     public static function within($paths, $composerPath, $composerNamespace, $command)
     {
+        $detailed = $command->option('detailed');
         foreach ($paths as $classFilePath) {
             $absFilePath = $classFilePath->getRealPath();
 
@@ -58,7 +59,9 @@ class CheckNamespaces
                 continue;
             }
 
-            $command->onFileTap($classFilePath->getRelativePathname());
+            if ($detailed) {
+                event('microscope.checking', [$classFilePath->getRelativePathname(), $command]);
+            }
 
             $relativePath = FilePath::getRelativePath($absFilePath);
             $correctNamespace = NamespaceCorrector::calculateCorrectNamespace($relativePath, $composerPath, $composerNamespace);
@@ -67,19 +70,17 @@ class CheckNamespaces
                 continue;
             }
             self::changedNamespaces($class, $currentNamespace, $correctNamespace);
-            self::warn($currentNamespace, $relativePath);
+            self::warn($currentNamespace, $relativePath, $class);
 
-            $answer = self::ask($command, $correctNamespace);
-            if ($answer) {
+            if (! $command->option('nofix') && self::ask($command, $correctNamespace)) {
                 self::doNamespaceCorrection($absFilePath, $currentNamespace, $correctNamespace);
                 // maybe an event listener
                 app(ErrorPrinter::class)->badNamespace($relativePath, $correctNamespace, $currentNamespace);
             }
         }
-        app(ErrorPrinter::class)->errorsList['total'] = 0;
     }
 
-    private static function warn($currentNamespace, $relativePath)
+    private static function warn($currentNamespace, $relativePath, $class)
     {
         /**
          * @var $p ErrorPrinter
@@ -88,7 +89,8 @@ class CheckNamespaces
         $msg = 'Incorrect namespace: '.$p->yellow("namespace $currentNamespace;");
         PendingError::$maxLength = max(PendingError::$maxLength, strlen($msg));
         $p->end();
-        $p->printHeader('Incorrect namespace: '.$p->yellow("namespace $currentNamespace;"));
+        $currentNamespace && $p->printHeader('Incorrect namespace: '.$p->yellow("namespace $currentNamespace;"));
+        ! $currentNamespace && $p->printHeader('Namespace Not Found: '.$class);
         $p->printLink($relativePath, 3);
     }
 
